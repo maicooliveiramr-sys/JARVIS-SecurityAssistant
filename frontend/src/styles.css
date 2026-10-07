@@ -1,0 +1,116 @@
+import { useEffect, useState } from 'react'
+
+const defaultPrompt = 'Ative o assistente e faça uma análise de segurança inicial.'
+
+function App() {
+  const [message, setMessage] = useState(defaultPrompt)
+  const [reply, setReply] = useState('Sistema operacional em linha. Módulos: IA, automação, rede e análise.')
+  const [isBusy, setIsBusy] = useState(false)
+
+  useEffect(() => {
+    fetch('http://localhost:8000/health')
+      .then((res) => res.json())
+      .then((data) => console.log(data))
+      .catch(() => console.log('Backend ainda não está em execução.'))
+  }, [])
+
+  async function sendCommand() {
+    setIsBusy(true)
+
+    try {
+      const response = await fetch('http://localhost:8000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, mode: 'assistant' })
+      })
+
+      const data = await response.json()
+      setReply(data.reply)
+    } catch (error) {
+      setReply('Erro de comunicação com o backend. Verifique se o servidor está em execução.')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  async function runSecurityCheck() {
+    const sample = `import os\npassword = "admin123"\nprint(os.system("whoami"))`
+
+    setIsBusy(true)
+    try {
+      const response = await fetch('http://localhost:8000/api/security/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: sample })
+      })
+
+      const data = await response.json()
+      setReply(JSON.stringify(data, null, 2))
+    } catch (error) {
+      setReply('Não foi possível executar a análise de segurança localmente.')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="background-grid" />
+      <header className="topbar">
+        <div className="brand-wrap">
+          <span className="dot" />
+          <span className="brand">JARVIS SECURITY AI</span>
+        </div>
+        <div className="status-pill">ONLINE</div>
+      </header>
+
+      <main className="dashboard">
+        <section className="panel hero-panel">
+          <div className="avatar-zone">
+            <div className="avatar-core">
+              <div className="avatar-ring ring-1" />
+              <div className="avatar-ring ring-2" />
+              <div className="avatar-face">J</div>
+            </div>
+          </div>
+
+          <div className="hero-copy">
+            <p className="label">Assistente operacional</p>
+            <h1>JARVIS</h1>
+            <p className="subtitle">
+              IA para automação, segurança cibernética, análise de código e monitoramento ético.
+            </p>
+          </div>
+        </section>
+
+        <section className="panel control-panel">
+          <div className="input-row">
+            <input
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Digite um comando ou pergunta..."
+            />
+            <button onClick={sendCommand} disabled={isBusy}>
+              {isBusy ? 'Processando...' : 'Enviar'}
+            </button>
+          </div>
+
+          <div className="quick-actions">
+            <button onClick={runSecurityCheck}>Analisar código</button>
+            <button onClick={() => setMessage('Quero uma visão geral do sistema')}>
+              Visão geral
+            </button>
+            <button onClick={() => setMessage('Ative o módulo de automação')}>Automação</button>
+          </div>
+        </section>
+
+        <section className="panel response-panel">
+          <h3>Resposta do sistema</h3>
+          <pre>{reply}</pre>
+        </section>
+      </main>
+    </div>
+  )
+}
+
+export default App
